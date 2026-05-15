@@ -1,139 +1,164 @@
 # Lab 02 — DNS Configuration & Analysis
 
-**Date:** May 2026
-**Tool:** Terminal, nslookup, Wireshark
+**Date:** May 15, 2026
+**Tool:** nslookup, Terminal
 **OS:** Parrot OS
 **Difficulty:** Beginner
-**Topic:** DNS, Name Resolution, DNS Record Types
+**Topic:** DNS Records, Name Resolution, Reverse Lookup
 **Reference:** Professor Messer N+ — DNS Configuration
 
 ---
 
 ## 🎯 Objective
 
-Understand how DNS works in practice — how domain names get resolved to IP addresses, what DNS record types exist, and how to query and analyze DNS traffic using command line tools.
+Perform real DNS queries using `nslookup` to understand how DNS record types work in practice — A, AAAA, MX, NS, and PTR records — and observe how Google's DNS infrastructure is built.
 
 ---
 
-## 📖 Key Concepts (From Prof Messer)
+## 🔬 Lab Commands & Real Output
 
-### What is DNS?
-DNS (Domain Name System) is the internet's "phone book." It translates human-readable domain names like `google.com` into IP addresses like `142.250.195.46` that computers use to communicate.
-
-### DNS Resolution Process (Step by Step)
-
-```
-Your Browser
-     │
-     ▼
-1. Check local cache — already know the IP?
-     │ No
-     ▼
-2. Ask Recursive Resolver (your ISP or 8.8.8.8)
-     │
-     ▼
-3. Resolver asks Root DNS Server → "Who handles .com?"
-     │
-     ▼
-4. Root says → "Ask the .com TLD server"
-     │
-     ▼
-5. TLD server says → "Ask google.com's authoritative server"
-     │
-     ▼
-6. Authoritative server → returns the IP address ✅
-     │
-     ▼
-7. Resolver caches it and sends IP back to your browser
-```
-
-### DNS Record Types
-
-| Record | Purpose | Example |
-|--------|---------|---------|
-| **A** | Maps domain → IPv4 address | `google.com → 142.250.195.46` |
-| **AAAA** | Maps domain → IPv6 address | `google.com → 2607:f8b0::...` |
-| **CNAME** | Alias — points to another domain | `www.google.com → google.com` |
-| **MX** | Mail server for a domain | `google.com → smtp.google.com` |
-| **TXT** | Text info (used for verification, SPF) | `"v=spf1 include:..."` |
-| **NS** | Nameserver for a domain | `google.com → ns1.google.com` |
-| **PTR** | Reverse lookup — IP → domain | `142.250.195.46 → google.com` |
-| **SOA** | Start of Authority — zone info | Admin contact, serial number |
-
----
-
-## 🔬 Lab — DNS Queries with nslookup
-
-### Basic A Record Lookup
+### 1. Basic A Record Lookup
 ```bash
 $ nslookup google.com
 
-Server:         192.168.1.1
-Address:        192.168.1.1#53
+Server:         10.155.101.43
+Address:        10.155.101.43#53
 
 Non-authoritative answer:
-Name:   google.com
-Address: 142.250.195.46        ← IPv4 (A record)
-Name:   google.com
-Address: 2607:f8b0::200e       ← IPv6 (AAAA record)
+Name: google.com  Address: 142.250.134.101
+Name: google.com  Address: 142.250.134.139
+Name: google.com  Address: 142.250.134.113
+Name: google.com  Address: 142.250.134.138
+Name: google.com  Address: 142.250.134.100
+Name: google.com  Address: 142.250.134.102
+Name: google.com  Address: 2404:6800:4000:100c::64
+Name: google.com  Address: 2404:6800:4000:100c::8b
+Name: google.com  Address: 2404:6800:4000:100c::8a
+Name: google.com  Address: 2404:6800:4000:100c::71
 ```
 
-### Query a Specific Record Type
-```bash
-# MX records (mail servers)
-$ nslookup -type=MX google.com
-
-# NS records (nameservers)
-$ nslookup -type=NS google.com
-
-# TXT records
-$ nslookup -type=TXT google.com
-```
-
-### Query a Specific DNS Server
-```bash
-# Ask Google's public DNS directly
-$ nslookup google.com 8.8.8.8
-
-# Ask Cloudflare's DNS
-$ nslookup google.com 1.1.1.1
-```
-
-### Reverse DNS Lookup (PTR record)
-```bash
-$ nslookup 8.8.8.8
-
-Non-authoritative answer:
-8.8.8.8.in-addr.arpa  name = dns.google
-```
+**What I observed:**
+- Google returned **6 different IPv4 addresses** — this is load balancing
+- Google also returned **IPv6 (AAAA) addresses** automatically
+- Response came from local DNS server `10.155.101.43` (my ISP/router)
+- One timeout error occurred but resolved — normal behavior
 
 ---
 
-## 🔍 DNS in Wireshark
+### 2. MX Records (Mail Servers)
+```bash
+$ nslookup -type=MX google.com
 
-DNS traffic runs on **UDP Port 53** (sometimes TCP for large responses).
+Server:         10.155.101.43
+Address:        10.155.101.43#53
 
-**Filter to see only DNS traffic:**
+Non-authoritative answer:
+google.com    mail exchanger = 10 smtp.google.com.
+
+Authoritative answers:
+smtp.google.com  internet address = 192.178.211.26
+smtp.google.com  internet address = 192.178.211.27
+smtp.google.com  has AAAA address 2404:6800:4000:1025::1b
+smtp.google.com  has AAAA address 2404:6800:4000:1025::1a
 ```
-dns
+
+**What I observed:**
+- All email to `@google.com` routes through `smtp.google.com`
+- Priority value `10` — lower number = higher priority
+- Mail server also has both IPv4 and IPv6 addresses
+
+---
+
+### 3. Querying via Google's Public DNS (8.8.8.8)
+```bash
+$ nslookup google.com 8.8.8.8
+
+Server:         8.8.8.8
+Address:        8.8.8.8#53
+
+Non-authoritative answer:
+Name: google.com  Address: 142.250.134.102
+Name: google.com  Address: 142.250.134.100
+Name: google.com  Address: 142.250.134.139
+Name: google.com  Address: 142.250.134.101
+Name: google.com  Address: 142.250.134.138
+Name: google.com  Address: 142.250.134.113
+Name: google.com  Address: 2404:6800:4009:803::200e
 ```
 
-**What you see in a DNS packet:**
-- **Query:** Your machine asking "What is the IP for google.com?"
-- **Response:** DNS server replying with the IP
-- **Transaction ID:** Matches query to response
-- **TTL:** How long to cache the answer (in seconds)
+**What I observed:**
+- Bypassed my ISP DNS and queried Google's own DNS directly
+- Same IPs returned — confirms DNS consistency globally
+- Server line now shows `8.8.8.8` instead of my local DNS
+
+---
+
+### 4. NS Records (Nameservers)
+```bash
+$ nslookup -type=NS google.com
+
+Server:         10.155.101.43
+Address:        10.155.101.43#53
+
+Non-authoritative answer:
+google.com  nameserver = ns4.google.com.
+google.com  nameserver = ns2.google.com.
+google.com  nameserver = ns1.google.com.
+google.com  nameserver = ns3.google.com.
+
+Authoritative answers:
+ns4.google.com  internet address = 216.239.38.10
+ns4.google.com  has AAAA address 2001:4860:4802:38::a
+ns2.google.com  internet address = 216.239.34.10
+ns2.google.com  has AAAA address 2001:4860:4802:34::a
+ns1.google.com  internet address = 216.239.32.10
+ns1.google.com  has AAAA address 2001:4860:4802:32::a
+ns3.google.com  internet address = 216.239.36.10
+ns3.google.com  has AAAA address 2001:4860:4802:36::a
+```
+
+**What I observed:**
+- Google runs **4 nameservers** (ns1–ns4) for redundancy
+- If one goes down, the other 3 handle DNS resolution
+- All nameservers have both IPv4 and IPv6 addresses
+
+---
+
+### 5. Reverse DNS Lookup (PTR Record)
+```bash
+$ nslookup 8.8.8.8
+
+8.8.8.8.in-addr.arpa    name = dns.google.
+```
+
+**What I observed:**
+- Gave an IP, got back a hostname — this is a PTR record
+- `8.8.8.8` resolves to `dns.google` — confirms it's Google's DNS server
+- Used in network troubleshooting to identify unknown IPs
+
+---
+
+## 📊 DNS Records Summary
+
+| Record | Command Used | Result |
+|--------|-------------|--------|
+| A | `nslookup google.com` | 6 IPv4 addresses (load balanced) |
+| AAAA | `nslookup google.com` | IPv6 addresses returned automatically |
+| MX | `nslookup -type=MX google.com` | smtp.google.com (priority 10) |
+| NS | `nslookup -type=NS google.com` | ns1–ns4.google.com |
+| PTR | `nslookup 8.8.8.8` | dns.google |
 
 ---
 
 ## 💡 Key Takeaways
 
-1. **DNS uses UDP port 53** by default — fast, connectionless
-2. **TTL matters** — low TTL = frequent lookups, high TTL = cached longer
-3. **DNS is unencrypted by default** — DNS over HTTPS (DoH) fixes this
-4. **nslookup is your best friend** for quick DNS troubleshooting
-5. **Non-authoritative answer** = response came from cache, not the original nameserver
-6. **DNS poisoning** is a real attack — knowing DNS deeply is key for security
+1. **Load balancing is real** — Google returns multiple IPs to distribute traffic globally
+2. **MX records control email routing** — not the A record
+3. **4 nameservers = redundancy** — enterprise DNS never has a single point of failure
+4. **Reverse DNS (PTR)** is a powerful troubleshooting tool — IP → hostname
+5. **Non-authoritative answer** means the response came from cache, not the original nameserver
+6. **DNS runs on UDP port 53** — fast and connectionless by design
+7. **Querying different DNS servers** (ISP vs 8.8.8.8) returns consistent results — DNS is globally synchronized
 
 ---
 
@@ -146,4 +171,4 @@ dns
 
 ---
 
-*Lab documented as part of Network+ study journey | [github.com/Paro6243](https://github.com/Paro6243)*
+*Lab performed on Parrot OS | Part of Network+ study journey | [github.com/Paro6243](https://github.com/Paro6243)*
