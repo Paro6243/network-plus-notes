@@ -18,7 +18,6 @@ Every file here is something I actually studied, labbed, and understood.
 ---
 
 ## 📁 Repo Structure
-
 network-plus-notes/
 ├── 01-OSI-Model/
 │   ├── notes.md
@@ -44,6 +43,7 @@ network-plus-notes/
 │   └── notes.md                      🔄 Coming soon
 └── cheatsheets/
 └── ports-and-protocols.md        🔄 Coming soon
+
 
 ---
 
